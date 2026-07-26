@@ -18,6 +18,11 @@ export type QualityTier = "standard" | "pro";
 export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:3" | "3:4";
 export type Resolution = "1K" | "2K" | "4K";
 
+/** Fournisseurs d'API directs supportés (PAS d'agrégateur — chaque modèle
+ *  est appelé sur l'API officielle de son éditeur). Ajouter un fournisseur
+ *  = ajouter son adaptateur dans lib/ai/providers/ + une entrée ici. */
+export type ProviderName = "bfl" | "google" | "ark" | "kling" | "runway" | "elevenlabs";
+
 /** Requête normalisée, indépendante de tout fournisseur. */
 export interface GenerationRequest {
   feature: Feature;
@@ -66,7 +71,8 @@ export interface AttemptLog {
 }
 
 /** Adaptateur de fournisseur : interface unique derrière laquelle se cachent
- *  fal.ai (et demain Replicate ou autre). Injectable pour les tests/simulations. */
+ *  les API officielles de chaque éditeur (BFL, Google, ByteDance, Kling,
+ *  Runway, ElevenLabs...). Injectable pour les tests/simulations. */
 export interface ProviderAdapter {
   /** Nom interne — journalisation uniquement. */
   name: string;

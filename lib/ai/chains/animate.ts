@@ -19,10 +19,12 @@ export async function runAnimateChain(
   onStage: StageCallback | undefined,
   deps: RouterDeps
 ): Promise<GenerationResult> {
-  // Étape 1 : image -> vidéo.
+  // Étape 1 : image -> vidéo (le modèle choisi par l'utilisateur, le cas
+  // échéant, est essayé en premier ; fallback automatique ensuite).
   onStage?.("video");
   const videoCandidates =
-    deps.candidatesOverride ?? orderCandidates(MODEL_CATALOG.animate, req.quality);
+    deps.candidatesOverride ??
+    orderCandidates(MODEL_CATALOG.animate, req.quality, req.preferredCandidateKey);
   const video = await executeWithFallback("animate", videoCandidates, req, deps);
 
   let finalUrl = video.outputUrls[0];

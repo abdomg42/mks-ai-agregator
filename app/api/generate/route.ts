@@ -15,12 +15,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { runGeneration } from "@/lib/ai/router";
 import { logGeneration } from "@/lib/ai/logger";
+import { isAnyProviderConfigured } from "@/lib/ai/providers";
 import { buildAnimatePrompt, buildAutoNarrationScript, buildPrintRenderPrompt } from "@/lib/ai/prompt-templates";
 import type { AspectRatio, Feature, GenerationRequest, QualityTier, Resolution } from "@/lib/ai/types";
 import { AllModelsFailedError } from "@/lib/ai/types";
 import { computeCreditCost } from "@/lib/costs";
 import { getCreditBalance } from "@/lib/credits";
 import { createJob, updateJob } from "@/lib/jobs/store";
+import { resolveCandidateKey } from "@/lib/model-options";
 import { MAX_QUANTITY, MAX_REFERENCES, NARRATION_SCRIPT_MAX, SCENE_DETAILS_MAX } from "@/lib/presets";
 
 export const runtime = "nodejs";
@@ -50,7 +52,9 @@ function validImageFile(value: unknown, maxSize: number): value is File {
 }
 
 export async function POST(req: NextRequest) {
-  if (!process.env.FAL_KEY) {
+  // Au moins un fournisseur configuré (voir .env.example) — sinon la file
+  // échouerait à coup sûr sur chaque candidat.
+  if (!isAnyProviderConfigured()) {
     return NextResponse.json(
       { error: "Generation is not configured yet — please try again later." },
       { status: 503 }
@@ -139,12 +143,31 @@ export async function POST(req: NextRequest) {
   }
 
   // --- Construction de la requête normalisée (prompt enveloppé serveur) ---
-  const styleId = typeof form.get("styleId") === "string" ? String(form.get("styleId")) : undefined;
+  const sceneTypeId = typeof form.get("sceneTypeId") === "string" ? String(form.get("sceneTypeId")) : undefined;
   const materialId = typeof form.get("materialId") === "string" ? String(form.get("materialId")) : undefined;
   const lightingId = typeof form.get("lightingId") === "string" ? String(form.get("lightingId")) : undefined;
   const motionId = typeof form.get("motionId") === "string" ? String(form.get("motionId")) : undefined;
 
-  const imageUrl = asDataUri(Buffer.from(await image.arrayBuffer()), image.type);
+  // Choix "modèle" de l'utilisateur (dropdown) : résout l'id public vers la
+  // clé interne du candidat à essayer EN PREMIER (fallback automatique
+  // ensuite). null/undefined = routage automatique.
+  const rawModelOption = typeof form.get("modelOption") === "string" ? String(form.get("modelOption")) : null;
+  const preferredCandidateKey = rawModelOption ? resolveCandidateKey(rawModelOption) : null;
+
+  // Image principale : soit une URL (rendu précédent, transmise telle
+  // quelle), soit le fichier uploadé encodé en data URI.
+  let imageUrl: string;
+  if (hasImageUrl && typeof imageUrlField === "string") {
+    imageUrl = imageUrlField.trim();
+  } else if (validImageFile(image, MAX_PRIMARY_SIZE)) {
+    imageUrl = asDataUri(Buffer.from(await image.arrayBuffer()), image.type);
+  } else {
+    // Déjà refusé par la validation ci-dessus — garde-fou pour le typage.
+    return NextResponse.json(
+      { error: "Please provide a valid image (PNG, JPEG or WebP, 10 MB max)." },
+      { status: 400 }
+    );
+  }
   const referenceUrls = await Promise.all(
     referenceFiles.map(async (file) => asDataUri(Buffer.from(await file.arrayBuffer()), file.type))
   );
@@ -156,16 +179,17 @@ export async function POST(req: NextRequest) {
     prompt:
       feature === "animate"
         ? buildAnimatePrompt({ sceneDetails, motionId })
-        : buildPrintRenderPrompt({ sceneDetails, styleId, materialId, lightingId }),
+        : buildPrintRenderPrompt({ sceneDetails, sceneTypeId, materialId, lightingId }),
     quality,
     aspectRatio,
     resolution,
     quantity,
+    preferredCandidateKey: preferredCandidateKey ?? undefined,
     motionPresetId: motionId,
     durationSeconds,
     narrationScript:
       feature === "animate" && form.get("narration") === "on"
-        ? narrationScript || buildAutoNarrationScript({ styleId })
+        ? narrationScript || buildAutoNarrationScript({ sceneTypeId })
         : undefined,
   };
 

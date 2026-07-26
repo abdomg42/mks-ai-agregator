@@ -12,19 +12,20 @@ import { AnimatePanel } from "@/components/studio/animate-panel";
 import { FeatureCard } from "@/components/studio/feature-card";
 import { GenerationControls } from "@/components/studio/generation-controls";
 import { StudioIconGrid, type StudioIconId } from "@/components/studio/icon-grid";
-import { PresetGrid } from "@/components/studio/preset-grid";
 import { ReferencesPanel, type ReferenceImage } from "@/components/studio/references-panel";
 import { ResultPanel, type ResultState } from "@/components/studio/result-panel";
 import { SceneDetails } from "@/components/studio/scene-details";
+import { SceneTypePicker } from "@/components/studio/scene-type-picker";
 import { SettingsAccordion } from "@/components/studio/settings-accordion";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { computeCreditCost } from "@/lib/costs";
 import { FEATURES, STUDIO_TABS, type StudioTab } from "@/lib/features";
+import { AUTO_MODEL_OPTION_ID, modelOptionsFor } from "@/lib/model-options";
 import {
   LIGHTING_PRESETS,
   MATERIAL_PRESETS,
   MOTION_PRESETS,
-  STYLE_PRESETS,
+  SCENE_TYPE_PRESETS,
 } from "@/lib/presets";
 import type { AspectRatio, QualityTier, Resolution } from "@/lib/ai/types";
 
@@ -57,10 +58,14 @@ export default function DashboardPage() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [references, setReferences] = useState<ReferenceImage[]>([]);
-  const [styleId, setStyleId] = useState(STYLE_PRESETS[0].id);
+  const [sceneTypeId, setSceneTypeId] = useState(SCENE_TYPE_PRESETS[0].id);
   const [materialId, setMaterialId] = useState(MATERIAL_PRESETS[0].id);
   const [lightingId, setLightingId] = useState(LIGHTING_PRESETS[0].id);
   const [sceneDetails, setSceneDetails] = useState("");
+
+  // --- Choix du modèle (dropdown) — "auto" = routage serveur ---
+  const [renderModelId, setRenderModelId] = useState(AUTO_MODEL_OPTION_ID);
+  const [animateModelId, setAnimateModelId] = useState("auto-video");
 
   // --- Contrôles de génération ---
   const [quantity, setQuantity] = useState(1);
@@ -168,10 +173,11 @@ export default function DashboardPage() {
     form.append("feature", "print_render");
     form.append("image", file);
     for (const reference of references) form.append("reference", reference.file);
-    form.append("styleId", styleId);
+    form.append("sceneTypeId", sceneTypeId);
     form.append("materialId", materialId);
     form.append("lightingId", lightingId);
     form.append("sceneDetails", sceneDetails);
+    form.append("modelOption", renderModelId);
     form.append("quality", quality);
     form.append("aspectRatio", aspectRatio);
     form.append("resolution", resolution);
@@ -194,6 +200,7 @@ export default function DashboardPage() {
     form.append("motionId", motionId);
     form.append("durationSeconds", String(durationSeconds));
     form.append("sceneDetails", animateSceneDetails);
+    form.append("modelOption", animateModelId);
     form.append("quality", quality);
     form.append("aspectRatio", aspectRatio);
     form.append("resolution", "1K");
@@ -295,10 +302,7 @@ export default function DashboardPage() {
                         setError(null);
                       }}
                     />
-                    <div className="flex flex-col gap-2">
-                      <span className="text-sm font-medium">Style</span>
-                      <PresetGrid items={STYLE_PRESETS} value={styleId} onChange={setStyleId} />
-                    </div>
+                    <SceneTypePicker value={sceneTypeId} onChange={setSceneTypeId} />
                     <ReferencesPanel
                       references={references}
                       onAdd={handleAddReferences}
@@ -324,6 +328,9 @@ export default function DashboardPage() {
                       setAnimateSource({ kind: "upload", previewUrl: URL.createObjectURL(selected) });
                       setError(null);
                     }}
+                    modelOptions={modelOptionsFor("animate")}
+                    modelId={animateModelId}
+                    onModelChange={setAnimateModelId}
                     motionId={motionId}
                     onMotionChange={setMotionId}
                     durationSeconds={durationSeconds}
@@ -403,6 +410,8 @@ export default function DashboardPage() {
 
       {tab === "render" && (
         <GenerationControls
+          modelOptions={modelOptionsFor("print_render")}
+          modelId={renderModelId}
           quantity={quantity}
           quality={quality}
           aspectRatio={aspectRatio}
@@ -411,6 +420,7 @@ export default function DashboardPage() {
           balance={balance}
           isBusy={isBusy}
           canGenerate={file !== null}
+          onModelChange={setRenderModelId}
           onQuantityChange={setQuantity}
           onQualityChange={setQuality}
           onAspectRatioChange={setAspectRatio}

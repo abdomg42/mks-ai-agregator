@@ -2,6 +2,22 @@
 // Aucun fragment de prompt ici : le prompt engineering vit côté serveur
 // dans lib/ai/prompt-templates.ts. Ici : ids, labels, vignettes, bornes UI.
 
+// --- "Customize Scene" : type de scène (base qui débloque les bons
+//     réglages). Remplace l'ancien sélecteur de style — chaque type a son
+//     prompt préparé côté serveur (lib/ai/prompt-templates.ts). ---
+
+export interface SceneTypeMeta {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export const SCENE_TYPE_PRESETS: SceneTypeMeta[] = [
+  { id: "commercial_exterior", label: "Commercial Exterior", description: "Urban façade" },
+  { id: "interior", label: "Interior", description: "Indoor environment" },
+  { id: "residential_exterior", label: "Residential Exterior", description: "Home & Garden" },
+];
+
 export interface PresetMeta {
   id: string;
   label: string;
@@ -9,15 +25,6 @@ export interface PresetMeta {
    *  `content` de tailwind.config.ts). */
   swatch: string;
 }
-
-export const STYLE_PRESETS: PresetMeta[] = [
-  { id: "modern", label: "Modern", swatch: "from-slate-300 to-slate-500" },
-  { id: "mediterranean", label: "Mediterranean", swatch: "from-amber-200 to-orange-400" },
-  { id: "scandinavian", label: "Scandinavian", swatch: "from-stone-200 to-stone-400" },
-  { id: "industrial", label: "Industrial", swatch: "from-zinc-400 to-zinc-700" },
-  { id: "japandi", label: "Japandi", swatch: "from-amber-100 to-stone-300" },
-  { id: "luxury", label: "Luxury", swatch: "from-yellow-200 to-amber-500" },
-];
 
 export const MATERIAL_PRESETS: PresetMeta[] = [
   { id: "oak", label: "Oak wood", swatch: "from-amber-200 to-amber-400" },

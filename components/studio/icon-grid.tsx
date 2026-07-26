@@ -10,7 +10,6 @@ import {
   CalendarClock,
   Camera,
   Clapperboard,
-  ClipboardList,
   Columns2,
   Expand,
   History,

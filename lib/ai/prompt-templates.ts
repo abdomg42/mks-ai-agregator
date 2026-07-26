@@ -8,17 +8,19 @@
 // Les fragments par preset y sont centralisés : lib/presets.ts (client)
 // ne contient que les métadonnées d'affichage (label, vignette).
 
-export const PROMPT_TEMPLATES_VERSION = "2026-07-21.v1";
+export const PROMPT_TEMPLATES_VERSION = "2026-07-26.v1";
 
 // --- Fragments internes par preset (jamais affichés tels quels) ---
 
-const STYLE_FRAGMENTS: Record<string, string> = {
-  modern: "modern minimalist architecture, clean lines, large glass panels",
-  mediterranean: "mediterranean architecture, warm stucco walls, terracotta roof",
-  scandinavian: "scandinavian interior style, light wood, neutral tones, cozy lighting",
-  industrial: "industrial loft style, exposed concrete, black steel frames, brick accents",
-  japandi: "japandi style, warm minimalism, natural materials, soft diffused light",
-  luxury: "luxury contemporary architecture, marble, brass details, floor-to-ceiling windows",
+/** Type de scène ("Customize Scene") : la BASE du prompt — elle oriente le
+ *  cadrage, le contexte et les réglages pertinents pour le sujet. */
+const SCENE_TYPE_FRAGMENTS: Record<string, string> = {
+  commercial_exterior:
+    "commercial building exterior, urban façade, street-level architectural photography, city context, professional presentation",
+  interior:
+    "interior space, indoor environment, carefully staged furniture and décor, balanced indoor lighting",
+  residential_exterior:
+    "residential home exterior, garden and landscaping, welcoming curb appeal, neighborhood context",
 };
 
 const MATERIAL_FRAGMENTS: Record<string, string> = {
@@ -59,7 +61,7 @@ function sanitizeSceneDetails(sceneDetails: string | undefined): string | null {
 
 export interface PrintRenderPromptArgs {
   sceneDetails?: string;
-  styleId?: string;
+  sceneTypeId?: string;
   materialId?: string;
   lightingId?: string;
 }
@@ -69,7 +71,7 @@ export function buildPrintRenderPrompt(args: PrintRenderPromptArgs): string {
     "photorealistic architectural render, preserve exact geometry and proportions of the input image",
   ];
   for (const part of [
-    fragment(STYLE_FRAGMENTS, args.styleId),
+    fragment(SCENE_TYPE_FRAGMENTS, args.sceneTypeId),
     fragment(MATERIAL_FRAGMENTS, args.materialId),
     fragment(LIGHTING_FRAGMENTS, args.lightingId),
     sanitizeSceneDetails(args.sceneDetails),
@@ -97,6 +99,6 @@ export function buildAnimatePrompt(args: AnimatePromptArgs): string {
 
 /** Légende auto quand l'utilisateur ne fournit pas de script de narration. */
 export function buildAutoNarrationScript(args: PrintRenderPromptArgs): string {
-  const style = args.styleId ? args.styleId.replace(/_/g, " ") : "contemporary";
-  return `Discover this ${style} project, brought to life with natural light and carefully chosen materials.`;
+  const scene = args.sceneTypeId ? args.sceneTypeId.replace(/_/g, " ") : "contemporary";
+  return `Discover this ${scene} project, brought to life with natural light and carefully chosen materials.`;
 }

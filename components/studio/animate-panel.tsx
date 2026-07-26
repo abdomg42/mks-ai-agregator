@@ -8,8 +8,10 @@ import { Check, Loader2, Mic, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { ModelPicker } from "@/components/studio/model-picker";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { DURATIONS, MOTION_PRESETS, NARRATION_SCRIPT_MAX } from "@/lib/presets";
+import type { ModelOption } from "@/lib/model-options";
 import { cn } from "@/lib/utils";
 
 export interface AnimateSource {
@@ -23,6 +25,9 @@ interface AnimatePanelProps {
   hasHistoryImages: boolean;
   onPickFromHistory: () => void;
   onFileSelected: (file: File) => void;
+  modelOptions: ModelOption[];
+  modelId: string;
+  onModelChange: (id: string) => void;
   motionId: string;
   onMotionChange: (id: string) => void;
   durationSeconds: 4 | 8 | 12;
@@ -44,6 +49,9 @@ export function AnimatePanel({
   hasHistoryImages,
   onPickFromHistory,
   onFileSelected,
+  modelOptions,
+  modelId,
+  onModelChange,
   motionId,
   onMotionChange,
   durationSeconds,
@@ -160,6 +168,11 @@ export function AnimatePanel({
             </span>
           </div>
         )}
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-medium">Model</span>
+        <ModelPicker options={modelOptions} value={modelId} onChange={onModelChange} />
       </div>
 
       <div className="flex flex-col gap-1">

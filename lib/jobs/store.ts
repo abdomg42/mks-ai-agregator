@@ -16,7 +16,10 @@ export interface Job {
   /** Étape courante — libellés PRODUIT génériques ("render", "video",
    *  "narration"...), jamais un nom de modèle/fournisseur. */
   stage?: string;
-  kind?: "image" | "video";
+  /** Type de média produit ("audio" n'apparaît qu'en intermédiaire de
+   *  chaîne, jamais en résultat final aujourd'hui — union alignée sur
+   *  GenerationResult pour éviter les conversions). */
+  kind?: "image" | "video" | "audio";
   outputUrls?: string[];
   errorMessage?: string;
   createdAt: number;

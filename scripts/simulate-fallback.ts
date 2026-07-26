@@ -33,7 +33,7 @@ function fakeCandidate(
 ): ModelCandidate {
   return {
     key,
-    provider: "fal",
+    provider: "bfl",
     modelId: `fake/${key}`,
     costWeight: 1,
     maxReferences: 99,
@@ -159,6 +159,27 @@ async function main(): Promise<void> {
       adapter: fakeAdapter([], calls),
     });
     assert(outcome.winner.key === "ok", "sortie vide traitée comme un échec, b sert");
+  }
+
+  console.log("\n[6] Modèle choisi par l'utilisateur : essayé EN PREMIER, fallback conservé");
+  {
+    const candidates = [fakeCandidate("a"), fakeCandidate("b"), fakeCandidate("c")];
+    const ordered = orderCandidates(candidates, "standard", "b");
+    assert(ordered[0].key === "b", "le candidat choisi passe devant");
+    assert(
+      ordered[1].key === "a" && ordered[2].key === "c",
+      "l'ordre config est conservé pour le fallback"
+    );
+    // Clé inconnue (hors feature) = routage automatique, ordre inchangé.
+    const unchanged = orderCandidates(candidates, "standard", "inconnu");
+    assert(unchanged[0].key === "a", "une clé inconnue ne change pas l'ordre");
+    // Le choix utilisateur prime sur le tri par tier.
+    const tierOrdered = orderCandidates(
+      [fakeCandidate("pro-first", { tiers: ["pro"] }), fakeCandidate("std-second")],
+      "pro",
+      "std-second"
+    );
+    assert(tierOrdered[0].key === "std-second", "le choix utilisateur prime sur le tier");
   }
 
   console.log(failures === 0 ? "\nTous les tests passent.\n" : `\n${failures} test(s) en échec.\n`);

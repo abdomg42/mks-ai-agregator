@@ -6,7 +6,7 @@ const config: Config = {
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    // lib/ contient les classes des vignettes de presets (STYLE_PRESETS)
+    // lib/ contient les classes des vignettes de presets (MATERIAL/LIGHTING_PRESETS)
     "./lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {

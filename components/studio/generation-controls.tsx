@@ -1,21 +1,30 @@
 "use client";
 
-// Barre d'outils de génération (bas de studio) :
-// - stepper de quantité (variantes)
-// - sélecteur de qualité — libellé GÉNÉRIQUE ("Standard/Pro") : il choisit
-//   juste quel candidat interne est essayé en premier, sans jamais nommer
-//   le modèle sous-jacent (règle non négociable)
+// Barre d'outils de génération (bas de studio) — TOUT en dropdowns :
+// - modèle (noms PRODUIT uniquement : le choix change juste quel candidat
+//   interne est essayé en premier, le fallback reste automatique)
+// - quantité (variantes)
+// - qualité — libellé GÉNÉRIQUE ("Standard/Pro") qui ne révèle rien du
+//   modèle sous-jacent (règle non négociable)
 // - ratio d'aspect, résolution
 // - bouton Generate avec coût en crédits EN DIRECT + état désactivé et
 //   message chiffré quand le solde est insuffisant (+ lien d'achat)
-import { Loader2, Minus, Plus, Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 
+import { ModelPicker } from "@/components/studio/model-picker";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ASPECT_RATIOS, MAX_QUANTITY, QUALITY_TIERS, RESOLUTIONS } from "@/lib/presets";
-import { cn } from "@/lib/utils";
+import type { ModelOption } from "@/lib/model-options";
 import type { AspectRatio, QualityTier, Resolution } from "@/lib/ai/types";
 
-function SegmentedControl<T extends string>({
+function DropdownControl<T extends string>({
   label,
   options,
   value,
@@ -29,32 +38,29 @@ function SegmentedControl<T extends string>({
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="flex overflow-hidden rounded-md border">
-        {options.map((option) => {
-          const id = typeof option === "string" ? option : option.id;
-          const text = typeof option === "string" ? option : option.label;
-          const isActive = id === value;
-          return (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={isActive}
-              onClick={() => onChange(id)}
-              className={cn(
-                "px-2.5 py-1.5 text-xs font-medium transition-colors",
-                isActive ? "bg-primary text-primary-foreground" : "hover:bg-accent"
-              )}
-            >
-              {text}
-            </button>
-          );
-        })}
-      </div>
+      <Select value={value} onValueChange={(id) => onChange(id as T)}>
+        <SelectTrigger className="w-[130px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => {
+            const id = typeof option === "string" ? option : option.id;
+            const text = typeof option === "string" ? option : option.label;
+            return (
+              <SelectItem key={id} value={id}>
+                {text}
+              </SelectItem>
+            );
+          })}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
 
 interface GenerationControlsProps {
+  modelOptions: ModelOption[];
+  modelId: string;
   quantity: number;
   quality: QualityTier;
   aspectRatio: AspectRatio;
@@ -63,6 +69,7 @@ interface GenerationControlsProps {
   balance: number | null;
   isBusy: boolean;
   canGenerate: boolean;
+  onModelChange: (id: string) => void;
   onQuantityChange: (value: number) => void;
   onQualityChange: (value: QualityTier) => void;
   onAspectRatioChange: (value: AspectRatio) => void;
@@ -71,6 +78,8 @@ interface GenerationControlsProps {
 }
 
 export function GenerationControls({
+  modelOptions,
+  modelId,
   quantity,
   quality,
   aspectRatio,
@@ -79,6 +88,7 @@ export function GenerationControls({
   balance,
   isBusy,
   canGenerate,
+  onModelChange,
   onQuantityChange,
   onQualityChange,
   onAspectRatioChange,
@@ -91,43 +101,31 @@ export function GenerationControls({
     <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
       <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-muted-foreground">Quantity</span>
-          <div className="flex items-center overflow-hidden rounded-md border">
-            <button
-              type="button"
-              aria-label="Decrease quantity"
-              disabled={quantity <= 1}
-              onClick={() => onQuantityChange(Math.max(1, quantity - 1))}
-              className="px-2 py-1.5 transition-colors hover:bg-accent disabled:opacity-40"
-            >
-              <Minus className="h-3.5 w-3.5" />
-            </button>
-            <span className="w-8 text-center text-sm font-medium">{quantity}</span>
-            <button
-              type="button"
-              aria-label="Increase quantity"
-              disabled={quantity >= MAX_QUANTITY}
-              onClick={() => onQuantityChange(Math.min(MAX_QUANTITY, quantity + 1))}
-              className="px-2 py-1.5 transition-colors hover:bg-accent disabled:opacity-40"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
+          <span className="text-xs text-muted-foreground">Model</span>
+          <div className="w-[200px]">
+            <ModelPicker options={modelOptions} value={modelId} onChange={onModelChange} />
           </div>
         </div>
 
-        <SegmentedControl
+        <DropdownControl
+          label="Quantity"
+          options={Array.from({ length: MAX_QUANTITY }, (_, index) => String(index + 1))}
+          value={String(quantity)}
+          onChange={(value) => onQuantityChange(Number(value))}
+        />
+        <DropdownControl
           label="Quality"
           options={QUALITY_TIERS.map((tier) => ({ id: tier.id, label: tier.label }))}
           value={quality}
           onChange={onQualityChange}
         />
-        <SegmentedControl
+        <DropdownControl
           label="Aspect ratio"
           options={ASPECT_RATIOS}
           value={aspectRatio}
           onChange={onAspectRatioChange}
         />
-        <SegmentedControl
+        <DropdownControl
           label="Resolution"
           options={RESOLUTIONS}
           value={resolution}

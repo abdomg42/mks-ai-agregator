@@ -3,9 +3,13 @@
 //
 // Responsabilités :
 // - résoudre la liste de candidats d'une feature (catalogue) selon le tier
-//   de qualité demandé, puis les essayer dans l'ordre : en cas d'échec
+//   de qualité demandé ET le modèle éventuellement choisi par l'utilisateur
+//   (essayé en premier), puis les essayer dans l'ordre : en cas d'échec
 //   (timeout, erreur, rejet politique de contenu), bascule automatique sur
 //   le suivant — invisible pour l'utilisateur ;
+// - dispatcher chaque candidat vers l'API OFFICIELLE de son fournisseur
+//   (lib/ai/providers/) — aucun agrégateur, aucune dépendance fatale à un
+//   fournisseur unique ;
 // - normaliser requêtes/réponses via GenerationRequest/GenerationResult ;
 // - chaîner les pipelines composés (rendu -> upscale 2K/4K ; Animate :
 //   vidéo -> TTS -> merge ffmpeg, voir chains/animate.ts) ;
@@ -15,7 +19,7 @@
 // permettre la simulation du fallback sans appels réels (scripts/).
 import { MODEL_CATALOG, type ModelCandidate } from "./catalog";
 import { logGeneration } from "./logger";
-import { falAdapter } from "./providers/fal";
+import { PROVIDER_ADAPTERS } from "./providers";
 import {
   AllModelsFailedError,
   type AttemptLog,
@@ -27,7 +31,8 @@ import {
 } from "./types";
 
 export interface RouterDeps {
-  /** Adaptateur injecté (défaut : fal.ai) — simulé dans les tests. */
+  /** Adaptateur injecté pour TOUS les candidats — tests/simulations
+   *  uniquement (en prod, chaque candidat utilise SON fournisseur). */
   adapter?: ProviderAdapter;
   /** Liste de candidats injectée à la place du catalogue — tests uniquement. */
   candidatesOverride?: ModelCandidate[];
@@ -36,16 +41,21 @@ export interface RouterDeps {
 
 export type StageCallback = (stage: string) => void;
 
-/** Tri des candidats : à priorité de configuration égale, un candidat du
- *  tier demandé passe devant. Le tri est stable (l'ordre du catalogue
- *  reste la priorité principale). */
+/** Tri des candidats : le modèle choisi par l'utilisateur (s'il fait partie
+ *  de la feature) passe EN PREMIER ; ensuite, à priorité de configuration
+ *  égale, un candidat du tier demandé passe devant. Tri stable : l'ordre du
+ *  catalogue reste la priorité principale et le fallback reste automatique. */
 export function orderCandidates(
   candidates: ModelCandidate[],
-  quality: QualityTier
+  quality: QualityTier,
+  preferredKey?: string
 ): ModelCandidate[] {
   return candidates
     .map((candidate, index) => ({ candidate, index }))
     .sort((a, b) => {
+      const aPreferred = preferredKey && a.candidate.key === preferredKey ? 0 : 1;
+      const bPreferred = preferredKey && b.candidate.key === preferredKey ? 0 : 1;
+      if (aPreferred !== bPreferred) return aPreferred - bPreferred;
       const aMatch = a.candidate.tiers.includes(quality) ? 0 : 1;
       const bMatch = b.candidate.tiers.includes(quality) ? 0 : 1;
       return aMatch - bMatch || a.index - b.index;
@@ -68,13 +78,15 @@ export async function executeWithFallback(
   req: GenerationRequest,
   deps: RouterDeps = {}
 ): Promise<FallbackOutcome> {
-  const adapter = deps.adapter ?? falAdapter;
   const now = deps.now ?? Date.now;
   const attempts: AttemptLog[] = [];
 
   for (const candidate of candidates) {
     const startedAt = now();
     try {
+      // Chaque candidat appelle l'API de SON fournisseur (sauf injection
+      // de test). Un fournisseur non configuré échoue vite -> fallback.
+      const adapter = deps.adapter ?? PROVIDER_ADAPTERS[candidate.provider];
       // Tronque les références au max supporté par le modèle — les
       // candidats à 0 slot les ignorent silencieusement (loggé).
       const truncatedReq =
@@ -111,7 +123,8 @@ async function runImagePipeline(
   deps: RouterDeps
 ): Promise<GenerationResult> {
   const candidates =
-    deps.candidatesOverride ?? orderCandidates(MODEL_CATALOG[req.feature], req.quality);
+    deps.candidatesOverride ??
+    orderCandidates(MODEL_CATALOG[req.feature], req.quality, req.preferredCandidateKey);
 
   onStage?.("render");
   const render = await executeWithFallback(req.feature, candidates, req, deps);
